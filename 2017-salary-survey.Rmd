@@ -12,30 +12,34 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r libraries, include=FALSE}
 library(readr)
 library(tidyr)
+library(plyr)
 library(dplyr)
 library(ggplot2)
 library(scales)
-library(maps)
+# library(maps)
 library(RColorBrewer)
 library(ggthemes)
+library(knitr)
 
 ```
 
-First conducted in 2000, the Land Trust Salaries and Benefits Survey is the only comprehensive source of staff compensation data exclusively for the land trust community. Many land trusts have told us that this survey is one of the most useful resources the Land Trust Alliance provides. For more information, please see <http://www.lta.org/salarysurvey>.
+First conducted in 2000, the Land Trust Salaries and Benefits Survey is the only comprehensive source of staff compensation data exclusively for the land trust community. For general information, please see <http://www.lta.org/salarysurvey>.
 
-## Questions to Consider
+# Overview of Survey Results
+
+The 2017 survey gathered data from 271 organizations from 47 states and the District of Columbia with at least one full-time paid staff member. We estimate that the number of responses represents about 47 percent of staffed land trusts.
+
+# Questions to Consider
 
 * What is the pay gap between male and female executive directors? 
 
 * Does it change with years of experience, operating budget, geographic region, number of FT staff?
 
-* Do organizations that pay female executice directors less than average also pay lower salaries for other positions?
+* Do organizations that pay female executive directors less than average also pay lower salaries for other positions?
 
 * Do organizations that pay less compensate by offering more generous benefits? Or do larger organizations tend to offer better benefits?
 
 * Can we assign an index or "score" to each organization that rates its total salary and benefits package compared to its peers?
-
-* If we cluster organizations by number of staff or operating budget
 
 Let's start by reading the raw data CSV file to see what we've got and start some clean-up.
 
@@ -47,7 +51,7 @@ surveydata <- read_csv("C:/Users/KChang.000/Desktop/Data Science/capstone-projec
 
 The online survey did not enforce input validation so we'll need to remove extraneous dollar signs and commas from numeric fields such as Budget, EDsalary, YearsExp, and YearsExpOtherOrgs.
 
-```{r}
+```{r include = FALSE}
 # remove dollar signs and commas
 x <- gsub("\\$", "", surveydata$Budget)
 surveydata$Budget <- as.numeric(gsub(",","", x))
@@ -62,11 +66,11 @@ surveydata$YearsExpOtherOrgs <- as.numeric(gsub(",","", surveydata$YearsExpOther
 
 ```
 
-Because this was a fairly long survey, it was not uncommon for respondents to leave some questions blank. To avoid  dropping entire responses due to a few NA values, I'll Wait until after we start pulling out subsets of columns to drop NA rows.
+Because this was a fairly long survey, it was not uncommon for respondents to leave some questions blank. To avoid  dropping entire responses due to a few NA values, I'll wait until after we start pulling out subsets of columns to drop NA rows.
 
 Since we'll be using the budget and ED salary columns frequently, I'll remove a few obvious outliers, such as respondents that entered the budget year or any budget less than 1000. It's not feasible for an organization that has at least one full-time paid staff to have a budget that low. Similarly, any ED salary should be greater than 0.
 
-```{r}
+```{r include = FALSE}
 # remove budget values of "2016" and "2017" and any values less than 1000
 surveydata <- surveydata[surveydata$Budget > 1000, ]
 surveydata <- surveydata[surveydata$Budget != 2016, ]
@@ -76,15 +80,46 @@ surveydata <- surveydata[surveydata$Budget != 2017, ]
 surveydata <- surveydata[surveydata$EDsalary > 0, ]
 ```
 
-## Salaries
+## Summary of Key Metrics
 
-### Executive Director
+This summary shows the range of respondents in our dataset.
+
+```{r include = FALSE}
+budgetmetrics <- summarise_at(surveydata, "Budget", funs(mean, median, min, max), na.rm=TRUE)
+staffsizemetrics <- summarise_at(surveydata, "FTstaff", funs(mean, median, min, max), na.rm=TRUE)
+EDsalarymetrics <- summarise_at(surveydata, "EDsalary", funs(mean, median, min, max), na.rm=TRUE)
+EDyrmetrics <- summarise_at(surveydata, "YearsExp", funs(mean, median, min, max), na.rm=TRUE)
+EDyrothmetrics <- summarise_at(surveydata, "YearsExpOtherOrgs", funs(mean, median, min, max), na.rm=TRUE)
+
+summary1 <- matrix(
+  c(budgetmetrics, staffsizemetrics, EDsalarymetrics, EDyrmetrics, EDyrothmetrics),
+  nrow = 5,
+  ncol = 4,
+  byrow = TRUE)
+
+rownames(summary1) <- c("Budget", "# of FT Staff", "ED Salary", "ED Years at Current Organization", "ED Years at Other Conservation Organizations")
+colnames(summary1) <- c("Mean", "Median", "Min", "Max")
+
+```
+
+```{r echo = FALSE, results = 'asis'}
+kable(summary1)
+```
+
+```{r echo = FALSE, warning = FALSE}
+ggplot(surveydata, aes(x = Budget)) +
+  geom_histogram(binwidth = 50000) +
+  theme_light() +
+  scale_x_continuous(labels = comma, limits = c(0, 5000000))
+```
+
+## Executive Director Salaries
 
 ```{r include=FALSE}
-edsalaries <- select(surveydata, 'Budget', 'YearsExp', 'YearsExpOtherOrgs', 'EDgender', 'EDsalary')
+edsalaries <- select(surveydata, 'RespondentID', 'Budget', 'YearsExp', 'YearsExpOtherOrgs', 'EDgender', 'EDsalary', 'FTstaff')
 
 edsalaries <- drop_na(edsalaries)
-names(edsalaries) <- c("budget", "years_exp", "years_other", "gender", "salary")
+names(edsalaries) <- c("RespondentID", "budget", "years_exp", "years_other", "gender", "salary", "FTstaff")
 
 ## add new column for total years of experience
 edsalaries$totalexp <- edsalaries$years_exp + edsalaries$years_other
@@ -113,7 +148,22 @@ ggplot(edsalaries_mf, aes(x = budget, y = salary)) +
   theme(legend.title = element_blank())
 ```
 
-But notice how the graph changes when you take the executive director's gender into consideration.
+Do organizations with more staff also pay their executive directors higher salaries?
+
+```{r echo=FALSE}
+## scatter plot of x = number of full-time staff, y = salary for organizations with up to 50 full-time staff
+ggplot(edsalaries_mf, aes(x = FTstaff, y = salary)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
+  coord_cartesian(xlim = c(0, 50), ylim = c(20000, 250000)) +
+  labs(x = "Staff Size", y = "Annual Salary") +
+  theme_light() +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  theme(legend.title = element_blank())
+```
+
+But notice how these graphs change when you take the executive director's gender into consideration. Women are paid less to lead organizations with the same operating budget:
 
 ```{r echo=FALSE}
 ## scatter plot of x = operating budget, y = salary for organizations with budgets up to $3 million
@@ -131,11 +181,46 @@ ggplot(edsalaries_mf, aes(x = budget, y = salary, col = gender)) +
                      labels = myLabels)
 ```
 
-This doesn't look good. Before we automatically assume unconscious bias or institutional sexism, could there be some other factor why men are paid more? Maybe they have longer tenures. Let's compare years at the current organization to salary.
+Women are paid less to lead organizations with the same number of staff:
 
-```{r EDsalarychart3, echo=FALSE}
+```{r echo=FALSE}
+## scatter plot of x = number of full-time staff, y = salary for organizations with up to 50 full-time staff
+ggplot(edsalaries_mf, aes(x = FTstaff, y = salary, col = gender)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
+  coord_cartesian(xlim = c(0, 50), ylim = c(20000, 250000)) +
+  labs(x = "Staff Size", y = "Annual Salary") +
+  theme_light() +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  theme(legend.title = element_blank())  +
+  scale_color_manual("Gender", 
+                     values = myColors,
+                     labels = myLabels)
+```
 
-## scatterplot with no title, linear trendline with polynomial curvature
+For organizations with budgets over $5 million or more than 30 staff, there are noticeably fewer led by women:
+
+```{r echo = FALSE}
+## scatter plot of x = number of full-time staff, y = operating budget for organizations with up to 50 full-time staff
+ggplot(edsalaries_mf, aes(x = FTstaff, y = budget, col = gender)) +
+  geom_jitter(alpha = 0.5) +
+  theme_light() +
+  labs(x = "Staff Size", y = "Operating Budget") +
+  coord_cartesian(xlim = c(0, 50)) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  theme(legend.title = element_blank())  +
+  scale_color_manual("Gender", 
+                     values = myColors,
+                     labels = myLabels)
+```
+
+Maybe male executive directors are paid more because they have longer tenures--i.e., they stay with the organization for more years. Let's compare years at the current organization to salary.
+
+```{r echo=FALSE}
+
+## scatterplot of x = years at current org and y = salary with linear trendline with polynomial curvature
 ggplot(edsalaries_mf, aes(x = years_exp, y = salary, col = gender)) +
   geom_point(alpha = 0.5, position = "jitter") +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
@@ -149,10 +234,10 @@ ggplot(edsalaries_mf, aes(x = years_exp, y = salary, col = gender)) +
 
 ```
 
-Maybe men have more total years of experience, when you add up both years at the current organization and years at other conservation organizations.
+The survey also asked about years of experience at other conservation organizations, so we can also try plotting total years of experience: years at the current organization and  at other conservation organizations. Unfortunately the graph is nearly identical to the one above.
 
 ```{r echo=FALSE}
-## scatterplot with no title, linear trendline with polynomial curvature
+## scatterplot of x = total years experience and y = salary with linear trendline with polynomial curvature
 ggplot(edsalaries_mf, aes(x = totalexp, y = salary, col = gender)) +
   geom_point(alpha = 0.5, position = "jitter") +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
@@ -165,63 +250,129 @@ ggplot(edsalaries_mf, aes(x = totalexp, y = salary, col = gender)) +
                      labels = myLabels)
 ```
 
-Can we build a model to predict an executive director's salary? Let's try these as our initial independent variables:
-* Operating budget
-* ED gender
-* Years of experience
+What is the pay gap between male and female executive directors' salaries?
 
-Should we add these to the dataset?
-* Total number of full-time staff
-* State or region
+```{r echo = FALSE}
+ggplot(edsalaries_mf, aes(x = gender, y = salary)) +
+  geom_boxplot() +
+  labs(title = "Executive Director Salaries by Gender", x = "Gender", y = "Annual Salary") +
+  theme_light()+
+  scale_y_continuous(labels = comma)
+```
 
-```{r}
+```{r echo = FALSE}
+EDsalarytable <- ddply(edsalaries_mf, c("gender"), summarise, mean = mean(salary), median = median(salary), stddev = sd(salary))
+
+EDsalarytable
+```
+
+### Predictive Model
+
+By building a linear regression model to predict an executive director's salary, we can gain some insight into which variables carry the most weight and their effect on salary. After some trial and error, these four variables yield the best model:
+
+*1.* Operating budget
+
+*2.* ED gender (female = 0, male = 1)
+
+*3.* Years of experience at current organization
+
+*4.* Total number of full-time staff
+
+```{r include = FALSE}
 # convert gender to 0 and 1 values: 0 is female and 1 is male
 edsalaries_mf$gend <- 0
 edsalaries_mf$gend <- replace(edsalaries_mf$gend, edsalaries_mf$gender == "Male", 1)
-
 ```
 
-
-```{r}
-EDsalaryReg <- lm(salary ~ budget + gender + years_exp + years_other + totalexp, data = edsalaries_mf)
-summary(EDsalaryReg)
-```
-
-```{r}
-
-# remove totalexp variable from model
-EDsalaryReg2 <- lm(salary ~ budget + gender + years_exp + years_other, data = edsalaries_mf)
-summary(EDsalaryReg2)
-
-```
-
-```{r}
+```{r include = FALSE}
 # remove years_other variable from model
-EDsalaryReg3 <- lm(salary ~ budget + gender + years_exp, data = edsalaries_mf)
+EDsalaryReg3 <- lm(salary ~ budget + gend + years_exp + FTstaff, data = edsalaries_mf)
 summary(EDsalaryReg3)
 ```
 
-```{r}
-# use numeric gender variable
-EDsalaryReg4 <- lm(salary ~ budget + gend + years_exp, data = edsalaries_mf)
-summary(EDsalaryReg4)
+# Other Staff
+
+The survey also asked about salaries for 10 job categories with three levels each. Experience levels represent the years of experience required for the position and are defined as follows:
+
+* Entry-Level: Fewer than two years of experience
+
+* Mid-Level: 2 to 7 years of experience
+
+* Senior-Level: More than 7 years of experience
+
+```{r include = FALSE}
+# table of average salaries for all job categories and levels
+
+# pull all salaries from main data set
+staffentrysalaries <- select(surveydata, ends_with("Entry"))
+staffmidsalaries <- select(surveydata, ends_with("Mid"))
+staffsrsalaries <- select(surveydata, ends_with("Sr"))
+
+# replace values < 10,000 with NA as these are not likely to be annual salaries
+staffentrysalaries[staffentrysalaries < 10000] <- NA
+staffmidsalaries[staffmidsalaries < 10000] <- NA
+staffsrsalaries[staffsrsalaries < 10000] <- NA
+
+# tidy data: move categories in column names to a category column
+staffentrysalaries <- gather(staffentrysalaries, 'AdminEntry', 'CommsEntry', 'FundraisingEntry', 'LandProtectionEntry', 'StewardshipEntry', 'EducationEntry', 'FinanceEntry', 'LegalEntry', 'PolicyEntry', 'GISEntry', key = "category", value = "salary", na.rm = TRUE)
+# split category column into category and level
+staffentrysalaries <- separate(staffentrysalaries, category, into = c("category", "level"), sep = -6)
+
+staffmidsalaries <- gather(staffmidsalaries, 'AdminMid', 'CommsMid', 'FundraisingMid', 'LandProtectionMid', 'StewardshipMid', 'EducationMid', 'FinanceMid', 'LegalMid', 'PolicyMid', 'GISMid', key = "category", value = "salary", na.rm = TRUE)
+# split category column into category and level
+staffmidsalaries <- separate(staffmidsalaries, category, into = c("category", "level"), sep = -4)
+
+staffsrsalaries <- gather(staffsrsalaries, 'AdminSr', 'CommsSr', 'FundraisingSr', 'LandProtectionSr', 'StewardshipSr', 'EducationSr', 'FinanceSr', 'LegalSr', 'PolicySr', 'GISSr', key = "category", value = "salary", na.rm = TRUE)
+# split category column into category and level
+staffsrsalaries <- separate(staffsrsalaries, category, into = c("category", "level"), sep = -3)
+
+# combine into one table with all salaries for non-ED positions
+staffsalariestidydata <- bind_rows(staffentrysalaries, staffmidsalaries, staffsrsalaries)
 ```
 
-### Other Staff
+```{r echo = FALSE}
+# boxplot of staff salaries by category and level
+ggplot(staffsalariestidydata, aes(x = category, y = salary, col = level)) +
+  geom_boxplot() +
+  theme_light() +
+  labs(title = "Staff Salaries by Job Category and Experience Level", x = "Category", y = "Salary") +
+  scale_y_continuous(labels = comma)
+```
+
+Generally, finance and fundraising positions tend to pay higher salaries across all 3 experience levels. Senior-level legal positions are by far the highest-paid, with an average salary of more than $100,000. 
+
+```{r include = FALSE}
+# summary table of average staff salaries by category and level
+avgsalaries <- ddply(staffsalariestidydata, c("category", "level"), summarise, mean = mean(salary))
+
+avgsalariestable <- spread(avgsalaries, level, mean)
+```
+
+```{r echo = FALSE, results = 'asis'}
+kable(avgsalariestable, caption = "Average Salaries by Job Category and Experience Level")
+```
+
+### Relationship between ED and Other Staff Salaries
+
+Do organizations that pay executive directors less than average also pay lower salaries for other positions?
+
+Maybe organizations that pay lower salaries offer better benefits to compensate. Or do larger organizations tend to offer better benefits? We saw above that organizations with larger budgets and more staff tend to offer higher salaries.
+
+First let's look at which variables can be considered benefits.
 
 ## Benefits
 
 ### Paid Leave for Vacation, Sick, Holidays, Personal and PTO
 
-Next we'll look at how much paid leave land trust staff get for vacation, holidays, sick days, personal days and PTO. 
+We asked about the number of days paid leave land trust staff get for vacation, holidays, sick days, personal days and PTO [^1]. 
 
-> Paid Time Off (PTO) is a program in which employees are given a set number of days off each year to be taken at their > discretion, as opposed to separate time off for vacation days, sick days and holidays.
+[^1]: Paid Time Off (PTO) is a program in which employees are given a set number of days off each year to be taken at their discretion, as opposed to separate time off for vacation days, sick days and holidays.
 
 ```{r include=FALSE}
 
 # pull paid leave columns from main data set
-paidleave <- select(surveydata, 'Budget', 'VacationFirstYr', 'VacationFifthYr', 'SickFirstYr', 'SickFifthYr', 'HolidayFirstYr', 'HolidayFifthYr', 'PersonalFirstYr', 'PersonalFifthYr', 'PTOFirstYr', 'PTOFifthYr')
-  
+paidleave <- select(surveydata, 'RespondentID', 'Budget', 'VacationFirstYr', 'VacationFifthYr', 'SickFirstYr', 'SickFifthYr', 'HolidayFirstYr', 'HolidayFifthYr', 'PersonalFirstYr', 'PersonalFifthYr', 'PTOFirstYr', 'PTOFifthYr')
+
 ## consolidate types of leave into one column with key = leavetype and value = days
 tidyleave <- gather(paidleave, 'VacationFirstYr', 'VacationFifthYr', 'SickFirstYr', 'SickFifthYr', 'HolidayFirstYr', 'HolidayFifthYr', 'PersonalFirstYr', 'PersonalFifthYr', 'PTOFirstYr', 'PTOFifthYr', key = "leavetype", value = "days")
 
@@ -262,10 +413,42 @@ ggplot(tidyleave, aes(x = leavetype, y = days, col = as.factor(tenure))) +
                      labels = c("First year", "Fifth year"))
 ```
 
+### Family Leave and Sabbaticals
+
+We also asked whether the organization offers four categories of paid or unpaid leave: maternity, paternity, family and sabbatical leave. For each category, responses were either yes, no or blank (no data on number of days). For this analysis, we'll look only at paid leave. We'll take a yes in any of the first three categories as a 1 for paid family leave. 
+
+```{r include=FALSE}
+familyleave <- select(surveydata, 'RespondentID', 'MaternityPaid', 'PaternityPaid', 'FamilyLeavePaid', 'SabbaticalPaid')
+
+# replace "Paid" string with 1 value
+familyleave$MaternityPaid <- replace(familyleave$MaternityPaid, familyleave$MaternityPaid == "Paid", 1)
+familyleave$PaternityPaid <- replace(familyleave$PaternityPaid, familyleave$PaternityPaid == "Paid", 1)
+familyleave$FamilyLeavePaid <- replace(familyleave$FamilyLeavePaid, familyleave$FamilyLeavePaid == "Paid", 1)
+familyleave$SabbaticalPaid <- replace(familyleave$SabbaticalPaid, familyleave$SabbaticalPaid == "Paid", 1)
+
+# replace NA with 0
+familyleave$MaternityPaid <- replace(familyleave$MaternityPaid, is.na(familyleave$MaternityPaid), 0)
+familyleave$PaternityPaid <- replace(familyleave$PaternityPaid, is.na(familyleave$PaternityPaid), 0)
+familyleave$FamilyLeavePaid <- replace(familyleave$FamilyLeavePaid, is.na(familyleave$FamilyLeavePaid), 0)
+familyleave$SabbaticalPaid <- replace(familyleave$SabbaticalPaid, is.na(familyleave$SabbaticalPaid), 0)
+
+## make sure days is in integers
+familyleave$FamilyLeavePaid <- as.integer(familyleave$FamilyLeavePaid)
+familyleave$SabbaticalPaid <- as.integer(familyleave$SabbaticalPaid)
+
+# summarize a yes in any of the three categories as a 1 for paid family leave
+for (x in 1:nrow(familyleave)) {
+  if (familyleave$MaternityPaid[[x]] == 1 || familyleave$PaternityPaid[[x]] == 1) {
+    familyleave$FamilyLeavePaid[[x]] <- 1
+  }
+}
+```
+
 ### Health Insurance
 
-# Respondents
+### Retirement Contributions
 
-## By state
+### Flexible Working Schedules
 
-## By number of full-time staff
+Flextime, telecommute, telework
+
