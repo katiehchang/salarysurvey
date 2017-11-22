@@ -2,7 +2,10 @@
 title: "2017 Land Trust Salaries and Benefits Survey"
 author: "Katie Chang"
 date: "November 2017"
-output: html_document
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -25,21 +28,21 @@ library(knitr)
 
 First conducted in 2000, the Land Trust Salaries and Benefits Survey is the only comprehensive source of staff compensation data exclusively for the land trust community. For general information, please see <http://www.lta.org/salarysurvey>.
 
-# Overview of Survey Results
+# Survey Respondents
 
 The 2017 survey gathered data from 271 organizations from 47 states and the District of Columbia with at least one full-time paid staff member. We estimate that the number of responses represents about 47 percent of staffed land trusts.
 
 # Questions to Consider
 
+* What factors determine how much an executive director is paid?
+
 * What is the pay gap between male and female executive directors? 
 
-* Does it change with years of experience, operating budget, geographic region, number of FT staff?
+* Does it change with years of experience, operating budget, and number of full-time staff?
 
-* Do organizations that pay female executive directors less than average also pay lower salaries for other positions?
+* For non-ED positions, how do salaries compare across job categories and experience levels?
 
-* Do organizations that pay less compensate by offering more generous benefits? Or do larger organizations tend to offer better benefits?
-
-* Can we assign an index or "score" to each organization that rates its total salary and benefits package compared to its peers?
+* Do organizations that pay less compensate by offering more generous benefits? Or do larger organizations tend to offer both higher salaries and better benefits?
 
 Let's start by reading the raw data CSV file to see what we've got and start some clean-up.
 
@@ -61,7 +64,6 @@ surveydata$EDsalary <- as.numeric(gsub(",","", x))
 
 # convert years to numeric
 surveydata$YearsExp <- as.numeric(gsub(",","", surveydata$YearsExp))
-
 surveydata$YearsExpOtherOrgs <- as.numeric(gsub(",","", surveydata$YearsExpOtherOrgs))
 
 ```
@@ -110,7 +112,8 @@ kable(summary1)
 ggplot(surveydata, aes(x = Budget)) +
   geom_histogram(binwidth = 50000) +
   theme_light() +
-  scale_x_continuous(labels = comma, limits = c(0, 5000000))
+  labs(title = "Distribution of Organizational Budgets up to $3 Million") +
+  scale_x_continuous(labels = comma, limits = c(0, 3000000))
 ```
 
 ## Executive Director Salaries
@@ -141,14 +144,14 @@ ggplot(edsalaries_mf, aes(x = budget, y = salary)) +
   geom_point(alpha = 0.4) +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
   coord_cartesian(xlim = c(min(edsalaries_mf$budget), 3000000), ylim = c(20000, 250000)) +
-  labs(x = "Operating Budget", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Operating Budget", x = "Operating Budget", y = "Annual Salary") +
   theme_light() +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
   theme(legend.title = element_blank())
 ```
 
-Do organizations with more staff also pay their executive directors higher salaries?
+Organizations with more staff also pay their executive directors higher salaries.
 
 ```{r echo=FALSE}
 ## scatter plot of x = number of full-time staff, y = salary for organizations with up to 50 full-time staff
@@ -156,14 +159,14 @@ ggplot(edsalaries_mf, aes(x = FTstaff, y = salary)) +
   geom_jitter(alpha = 0.4) +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
   coord_cartesian(xlim = c(0, 50), ylim = c(20000, 250000)) +
-  labs(x = "Staff Size", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Staff Size", x = "Staff Size", y = "Annual Salary") +
   theme_light() +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
   theme(legend.title = element_blank())
 ```
 
-But notice how these graphs change when you take the executive director's gender into consideration. Women are paid less to lead organizations with the same operating budget:
+But notice how these graphs change when you take the executive director's gender into consideration. Women are paid less to lead organizations with the same operating budget.
 
 ```{r echo=FALSE}
 ## scatter plot of x = operating budget, y = salary for organizations with budgets up to $3 million
@@ -171,7 +174,7 @@ ggplot(edsalaries_mf, aes(x = budget, y = salary, col = gender)) +
   geom_point(alpha = 0.5) +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
   coord_cartesian(xlim = c(min(edsalaries_mf$budget), 3000000), ylim = c(20000, 250000)) +
-  labs(x = "Operating Budget", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Budget and Gender", x = "Operating Budget", y = "Annual Salary") +
   theme_light() +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
@@ -181,7 +184,7 @@ ggplot(edsalaries_mf, aes(x = budget, y = salary, col = gender)) +
                      labels = myLabels)
 ```
 
-Women are paid less to lead organizations with the same number of staff:
+Women are also paid less to lead organizations with the same number of staff:
 
 ```{r echo=FALSE}
 ## scatter plot of x = number of full-time staff, y = salary for organizations with up to 50 full-time staff
@@ -189,7 +192,7 @@ ggplot(edsalaries_mf, aes(x = FTstaff, y = salary, col = gender)) +
   geom_jitter(alpha = 0.4) +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
   coord_cartesian(xlim = c(0, 50), ylim = c(20000, 250000)) +
-  labs(x = "Staff Size", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Staff Size and Gender", x = "Staff Size", y = "Annual Salary") +
   theme_light() +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
@@ -206,7 +209,7 @@ For organizations with budgets over $5 million or more than 30 staff, there are 
 ggplot(edsalaries_mf, aes(x = FTstaff, y = budget, col = gender)) +
   geom_jitter(alpha = 0.5) +
   theme_light() +
-  labs(x = "Staff Size", y = "Operating Budget") +
+  labs(title = "Operating Budget and Staff Size by Gender", x = "Staff Size", y = "Operating Budget") +
   coord_cartesian(xlim = c(0, 50)) +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = comma) +
@@ -224,7 +227,7 @@ Maybe male executive directors are paid more because they have longer tenures--i
 ggplot(edsalaries_mf, aes(x = years_exp, y = salary, col = gender)) +
   geom_point(alpha = 0.5, position = "jitter") +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
-  labs(x = "Years at Current Organization", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Years at Current Organization", x = "Years at Current Organization", y = "Annual Salary") +
   theme_light() +
   scale_y_continuous(labels = comma) +
   theme(legend.title = element_blank()) +
@@ -241,7 +244,7 @@ The survey also asked about years of experience at other conservation organizati
 ggplot(edsalaries_mf, aes(x = totalexp, y = salary, col = gender)) +
   geom_point(alpha = 0.5, position = "jitter") +
   geom_smooth(se = FALSE, method = "lm", formula = y ~ poly(x, 2), size = 1) +
-  labs(x = "Total Years of Experience", y = "Annual Salary") +
+  labs(title = "Executive Director Salaries by Total Years of Experience", x = "Total Years of Experience", y = "Annual Salary") +
   theme_light() +
   scale_y_continuous(labels = comma) +
   theme(legend.title = element_blank()) +
@@ -268,7 +271,7 @@ EDsalarytable
 
 ### Predictive Model
 
-By building a linear regression model to predict an executive director's salary, we can gain some insight into which variables carry the most weight and their effect on salary. After some trial and error, these four variables yield the best model:
+By building a linear regression model to predict an executive director's salary, we can gain some insight into which variables carry the most weight and their effect on salary. After some trial and error, these four variables yield the best predictive model:
 
 *1.* Operating budget
 
@@ -284,11 +287,21 @@ edsalaries_mf$gend <- 0
 edsalaries_mf$gend <- replace(edsalaries_mf$gend, edsalaries_mf$gender == "Male", 1)
 ```
 
-```{r include = FALSE}
+```{r echo = FALSE}
 # remove years_other variable from model
 EDsalaryReg3 <- lm(salary ~ budget + gend + years_exp + FTstaff, data = edsalaries_mf)
 summary(EDsalaryReg3)
 ```
+
+Looking at the gender coefficient, on average, male executive directors are paid $10,170 more than a female director with the same number of years of experience, budget and number of staff.
+
+For both males and females, on average, executive director salary corresponds to:
+
+* An increase of $1886 for each additional staff person;
+
+* An increase of $641 for each additional year of experience; and
+
+* An increase of $549 for each additional $100,000 of operating budget.
 
 # Other Staff
 
@@ -314,7 +327,9 @@ staffmidsalaries[staffmidsalaries < 10000] <- NA
 staffsrsalaries[staffsrsalaries < 10000] <- NA
 
 # tidy data: move categories in column names to a category column
+
 staffentrysalaries <- gather(staffentrysalaries, 'AdminEntry', 'CommsEntry', 'FundraisingEntry', 'LandProtectionEntry', 'StewardshipEntry', 'EducationEntry', 'FinanceEntry', 'LegalEntry', 'PolicyEntry', 'GISEntry', key = "category", value = "salary", na.rm = TRUE)
+
 # split category column into category and level
 staffentrysalaries <- separate(staffentrysalaries, category, into = c("category", "level"), sep = -6)
 
@@ -352,103 +367,502 @@ avgsalariestable <- spread(avgsalaries, level, mean)
 kable(avgsalariestable, caption = "Average Salaries by Job Category and Experience Level")
 ```
 
-### Relationship between ED and Other Staff Salaries
 
-Do organizations that pay executive directors less than average also pay lower salaries for other positions?
+## Comparison of Salaries to Benefits
 
-Maybe organizations that pay lower salaries offer better benefits to compensate. Or do larger organizations tend to offer better benefits? We saw above that organizations with larger budgets and more staff tend to offer higher salaries.
+It's often suggested that organizations which pay lower salaries offer better benefits to compensate. The counter argument is that larger organizations can afford to offer both higher salaries and better benefits.
 
-First let's look at which variables can be considered benefits.
+### Staff Salary Index
 
-## Benefits
+We'll use the salaries across all non-ED categories and levels to compute an "index of salaries" for each organization. We start by calculating the difference between the average salary and reported salary for each job category and level. If a particular organization's reported salary is above the average, the value is positive and if it is below average, the value is negative. The index is the sum of these differences.
 
-### Paid Leave for Vacation, Sick, Holidays, Personal and PTO
+```{r include = FALSE}
 
-We asked about the number of days paid leave land trust staff get for vacation, holidays, sick days, personal days and PTO [^1]. 
+# add column with a staff salary index that takes the average salary across all job categories and levels
+surveydata$StaffSalaryIndex <- 0
 
-[^1]: Paid Time Off (PTO) is a program in which employees are given a set number of days off each year to be taken at their discretion, as opposed to separate time off for vacation days, sick days and holidays.
+# set NA values to mean value and create new index column with difference between 
+# each reported salary and the mean for that category and level
+surveydata$AdminEntryIndex <- replace(surveydata$AdminEntry, 
+                                      is.na(surveydata$AdminEntry), 
+                                      mean(surveydata$AdminEntry, na.rm = TRUE)) - 
+                              mean(surveydata$AdminEntry, na.rm = TRUE)
+
+surveydata$AdminMidIndex <- replace(surveydata$AdminMid, 
+                                      is.na(surveydata$AdminMid), 
+                                      mean(surveydata$AdminMid, na.rm = TRUE)) - 
+                              mean(surveydata$AdminMid, na.rm = TRUE)
+
+surveydata$AdminSrIndex <- replace(surveydata$AdminSr, 
+                                      is.na(surveydata$AdminSr), 
+                                      mean(surveydata$AdminSr, na.rm = TRUE)) - 
+                              mean(surveydata$AdminSr, na.rm = TRUE)
+
+surveydata$CommsEntryIndex <- replace(surveydata$CommsEntry, 
+                                      is.na(surveydata$CommsEntry), 
+                                      mean(surveydata$CommsEntry, na.rm = TRUE)) - 
+                              mean(surveydata$CommsEntry, na.rm = TRUE)
+
+surveydata$CommsMidIndex <- replace(surveydata$CommsMid, 
+                                      is.na(surveydata$CommsMid), 
+                                      mean(surveydata$CommsMid, na.rm = TRUE)) - 
+                              mean(surveydata$CommsMid, na.rm = TRUE)
+
+surveydata$CommsSrIndex <- replace(surveydata$CommsSr, 
+                                      is.na(surveydata$CommsSr), 
+                                      mean(surveydata$CommsSr, na.rm = TRUE)) - 
+                              mean(surveydata$CommsSr, na.rm = TRUE)
+
+surveydata$FundraisingEntryIndex <- replace(surveydata$FundraisingEntry, 
+                                      is.na(surveydata$FundraisingEntry), 
+                                      mean(surveydata$FundraisingEntry, na.rm = TRUE)) - 
+                              mean(surveydata$FundraisingEntry, na.rm = TRUE)
+
+surveydata$FundraisingMidIndex <- replace(surveydata$FundraisingMid, 
+                                      is.na(surveydata$FundraisingMid), 
+                                      mean(surveydata$FundraisingMid, na.rm = TRUE)) - 
+                              mean(surveydata$FundraisingMid, na.rm = TRUE)
+
+surveydata$FundraisingSrIndex <- replace(surveydata$FundraisingSr, 
+                                      is.na(surveydata$FundraisingSr), 
+                                      mean(surveydata$FundraisingSr, na.rm = TRUE)) - 
+                              mean(surveydata$FundraisingSr, na.rm = TRUE)
+
+surveydata$LandProtectionEntryIndex <- replace(surveydata$LandProtectionEntry, 
+                                      is.na(surveydata$LandProtectionEntry), 
+                                      mean(surveydata$LandProtectionEntry, na.rm = TRUE)) - 
+                              mean(surveydata$LandProtectionEntry, na.rm = TRUE)
+
+surveydata$LandProtectionMidIndex <- replace(surveydata$LandProtectionMid, 
+                                      is.na(surveydata$LandProtectionMid), 
+                                      mean(surveydata$LandProtectionMid, na.rm = TRUE)) - 
+                              mean(surveydata$LandProtectionMid, na.rm = TRUE)
+
+surveydata$LandProtectionSrIndex <- replace(surveydata$LandProtectionSr, 
+                                      is.na(surveydata$LandProtectionSr), 
+                                      mean(surveydata$LandProtectionSr, na.rm = TRUE)) - 
+                              mean(surveydata$LandProtectionSr, na.rm = TRUE)
+
+surveydata$StewardshipEntryIndex <- replace(surveydata$StewardshipEntry, 
+                                      is.na(surveydata$StewardshipEntry), 
+                                      mean(surveydata$StewardshipEntry, na.rm = TRUE)) - 
+                              mean(surveydata$StewardshipEntry, na.rm = TRUE)
+
+surveydata$StewardshipMidIndex <- replace(surveydata$StewardshipMid, 
+                                      is.na(surveydata$StewardshipMid), 
+                                      mean(surveydata$StewardshipMid, na.rm = TRUE)) - 
+                              mean(surveydata$StewardshipMid, na.rm = TRUE)
+
+surveydata$StewardshipSrIndex <- replace(surveydata$StewardshipSr, 
+                                      is.na(surveydata$StewardshipSr), 
+                                      mean(surveydata$StewardshipSr, na.rm = TRUE)) - 
+                              mean(surveydata$StewardshipSr, na.rm = TRUE)
+
+surveydata$EducationEntryIndex <- replace(surveydata$EducationEntry, 
+                                      is.na(surveydata$EducationEntry), 
+                                      mean(surveydata$EducationEntry, na.rm = TRUE)) - 
+                              mean(surveydata$EducationEntry, na.rm = TRUE)
+
+surveydata$EducationMidIndex <- replace(surveydata$EducationMid, 
+                                      is.na(surveydata$EducationMid), 
+                                      mean(surveydata$EducationMid, na.rm = TRUE)) - 
+                              mean(surveydata$EducationMid, na.rm = TRUE)
+
+surveydata$EducationSrIndex <- replace(surveydata$EducationSr, 
+                                      is.na(surveydata$EducationSr), 
+                                      mean(surveydata$EducationSr, na.rm = TRUE)) - 
+                              mean(surveydata$EducationSr, na.rm = TRUE)
+
+surveydata$FinanceEntryIndex <- replace(surveydata$FinanceEntry, 
+                                      is.na(surveydata$FinanceEntry), 
+                                      mean(surveydata$FinanceEntry, na.rm = TRUE)) - 
+                              mean(surveydata$FinanceEntry, na.rm = TRUE)
+
+surveydata$FinanceMidIndex <- replace(surveydata$FinanceMid, 
+                                      is.na(surveydata$FinanceMid), 
+                                      mean(surveydata$FinanceMid, na.rm = TRUE)) - 
+                              mean(surveydata$FinanceMid, na.rm = TRUE)
+
+surveydata$FinanceSrIndex <- replace(surveydata$FinanceSr, 
+                                      is.na(surveydata$FinanceSr), 
+                                      mean(surveydata$FinanceSr, na.rm = TRUE)) - 
+                              mean(surveydata$FinanceSr, na.rm = TRUE)
+
+surveydata$LegalEntryIndex <- replace(surveydata$LegalEntry, 
+                                      is.na(surveydata$LegalEntry), 
+                                      mean(surveydata$LegalEntry, na.rm = TRUE)) - 
+                              mean(surveydata$LegalEntry, na.rm = TRUE)
+
+surveydata$LegalMidIndex <- replace(surveydata$LegalMid, 
+                                      is.na(surveydata$LegalMid), 
+                                      mean(surveydata$LegalMid, na.rm = TRUE)) - 
+                              mean(surveydata$LegalMid, na.rm = TRUE)
+
+surveydata$LegalSrIndex <- replace(surveydata$LegalSr, 
+                                      is.na(surveydata$LegalSr), 
+                                      mean(surveydata$LegalSr, na.rm = TRUE)) - 
+                              mean(surveydata$LegalSr, na.rm = TRUE)
+
+surveydata$PolicyEntryIndex <- replace(surveydata$PolicyEntry, 
+                                      is.na(surveydata$PolicyEntry), 
+                                      mean(surveydata$PolicyEntry, na.rm = TRUE)) - 
+                              mean(surveydata$PolicyEntry, na.rm = TRUE)
+
+surveydata$PolicyMidIndex <- replace(surveydata$PolicyMid, 
+                                      is.na(surveydata$PolicyMid), 
+                                      mean(surveydata$PolicyMid, na.rm = TRUE)) - 
+                              mean(surveydata$PolicyMid, na.rm = TRUE)
+
+surveydata$PolicySrIndex <- replace(surveydata$PolicySr, 
+                                      is.na(surveydata$PolicySr), 
+                                      mean(surveydata$PolicySr, na.rm = TRUE)) - 
+                              mean(surveydata$PolicySr, na.rm = TRUE)
+
+surveydata$GISEntryIndex <- replace(surveydata$GISEntry, 
+                                      is.na(surveydata$GISEntry), 
+                                      mean(surveydata$GISEntry, na.rm = TRUE)) - 
+                              mean(surveydata$GISEntry, na.rm = TRUE)
+
+surveydata$GISMidIndex <- replace(surveydata$GISMid, 
+                                      is.na(surveydata$GISMid), 
+                                      mean(surveydata$GISMid, na.rm = TRUE)) - 
+                              mean(surveydata$GISMid, na.rm = TRUE)
+
+surveydata$GISSrIndex <- replace(surveydata$GISSr, 
+                                      is.na(surveydata$GISSr), 
+                                      mean(surveydata$GISSr, na.rm = TRUE)) - 
+                              mean(surveydata$GISSr, na.rm = TRUE)
+
+# complete an index by computing the sum of all categories and levels
+surveydata$StaffSalaryIndex <- surveydata$AdminEntryIndex +
+                               surveydata$AdminMidIndex +
+                               surveydata$AdminSrIndex +
+                               surveydata$CommsEntryIndex +
+                               surveydata$CommsMidIndex +
+                               surveydata$CommsSrIndex +
+                               surveydata$FundraisingEntryIndex +
+                               surveydata$FundraisingMidIndex +
+                               surveydata$FundraisingSrIndex +
+                               surveydata$LandProtectionEntryIndex +
+                               surveydata$LandProtectionMidIndex +
+                               surveydata$LandProtectionSrIndex +
+                               surveydata$StewardshipEntryIndex +
+                               surveydata$StewardshipMidIndex +
+                               surveydata$StewardshipSrIndex +
+                               surveydata$EducationEntryIndex +
+                               surveydata$EducationMidIndex +
+                               surveydata$EducationSrIndex +
+                               surveydata$FinanceEntryIndex +
+                               surveydata$FinanceMidIndex +
+                               surveydata$FinanceSrIndex +
+                               surveydata$LegalEntryIndex +
+                               surveydata$LegalMidIndex +
+                               surveydata$LegalSrIndex +
+                               surveydata$PolicyEntryIndex +
+                               surveydata$PolicyMidIndex +
+                               surveydata$PolicySrIndex +
+                               surveydata$GISEntryIndex +
+                               surveydata$GISMidIndex +
+                               surveydata$GISSrIndex
+```
+
+### Benefits Index
+
+For purposes of this analysis, we'll use the following indicators to compute an "index" of benefits, with a Yes = 1 and No or blank = 0:
+
+* Paid maternity leave
+
+* Paid paternity leave
+
+* Paid family leave
+
+* Paid sabbatical leave
+
+* Flextime 
+
+* Telecommuting
+
+* Teleworking
+
+* Employee health insurance
+
+* Employee dental insurance
+
+* Employee long-term disability
+
+* Employee short-term disability
+
+* Employee life insurance
+
+* Retirement benefits
+
+Since we asked about vacation leave for first-year and fifth-year staff separately, we'll assign a value of zero, 0.5 or 1 based on the following criteria:
+
+*First year of employment*
+
+* 10 or more days = 1
+
+* Fewer than 10 but more than 5 = 0.5
+
+* Fewer than 5 = 0
+  
+*Fifth year of employment*
+
+* 15 or more days = 1
+
+* Fewer than 15 but more than or equal to 10 = 0.5
+
+* Fewer than 10 = 0
 
 ```{r include=FALSE}
+# convert "Paid" values to 1
+surveydata$MaternityPaid <- replace(surveydata$MaternityPaid, surveydata$MaternityPaid == "Paid", 1)
+surveydata$PaternityPaid <- replace(surveydata$PaternityPaid, surveydata$PaternityPaid == "Paid", 1)
+surveydata$FamilyLeavePaid <- replace(surveydata$FamilyLeavePaid, surveydata$FamilyLeavePaid == "Paid", 1)
+surveydata$SabbaticalPaid <- replace(surveydata$SabbaticalPaid, surveydata$SabbaticalPaid == "Paid", 1)
 
-# pull paid leave columns from main data set
-paidleave <- select(surveydata, 'RespondentID', 'Budget', 'VacationFirstYr', 'VacationFifthYr', 'SickFirstYr', 'SickFifthYr', 'HolidayFirstYr', 'HolidayFifthYr', 'PersonalFirstYr', 'PersonalFifthYr', 'PTOFirstYr', 'PTOFifthYr')
+# convert "Yes" values to 1
+surveydata$FlextimeYes <- replace(surveydata$FlextimeYes, surveydata$FlextimeYes == "Yes", 1)
+surveydata$TelecommutingYes <- replace(surveydata$TelecommutingYes, surveydata$TelecommutingYes == "Yes", 1)
+surveydata$TeleworkingYes <- replace(surveydata$TeleworkingYes, surveydata$TeleworkingYes == "Yes", 1)
 
-## consolidate types of leave into one column with key = leavetype and value = days
-tidyleave <- gather(paidleave, 'VacationFirstYr', 'VacationFifthYr', 'SickFirstYr', 'SickFifthYr', 'HolidayFirstYr', 'HolidayFifthYr', 'PersonalFirstYr', 'PersonalFifthYr', 'PTOFirstYr', 'PTOFifthYr', key = "leavetype", value = "days")
+surveydata$EmployeeHealthIns <- replace(surveydata$EmployeeHealthIns, surveydata$EmployeeHealthIns == "Yes", 1)
+surveydata$EmployeeDental <- replace(surveydata$EmployeeDental, surveydata$EmployeeDental == "Yes", 1)
+surveydata$EmployeeLTD <- replace(surveydata$EmployeeLTD, surveydata$EmployeeLTD == "Yes", 1)
+surveydata$EmployeeSTD <- replace(surveydata$EmployeeSTD, surveydata$EmployeeSTD == "Yes", 1)
+surveydata$EmployeeLife <- replace(surveydata$EmployeeLife, surveydata$EmployeeLife == "Yes", 1)
+surveydata$Retirement <- replace(surveydata$Retirement, surveydata$Retirement == "Yes", 1)
 
-## make sure days is in integers
-tidyleave$days <- as.integer(tidyleave$days)
+# replace NA values in vacation days with zero
+surveydata$VacationFirstYr <- replace(surveydata$VacationFirstYr, is.na(surveydata$VacationFirstYr), 0)
+surveydata$VacationFirstYr <- as.numeric(surveydata$VacationFirstYr)
 
-## remove rows where days is NA
-tidyleave <- drop_na(tidyleave)
+surveydata$VacationFifthYr <- replace(surveydata$VacationFifthYr, is.na(surveydata$VacationFifthYr), 0)
+surveydata$VacationFifthYr <- as.numeric(surveydata$VacationFifthYr)
 
-## add new column for tenure, which is either 1 for first year of employment or 5 for five years
-tidyleave$tenure <- as.integer(5)
+# create new columns for 0, 0.5 and 1 indices
+surveydata$VacationFirstYrScaled <- 0
+surveydata$VacationFifthYrScaled <- 0
 
-for (x in 1:nrow(tidyleave)) {
-  if (grepl("First", tidyleave$leavetype[[x]])) {
-    tidyleave$tenure[[x]] = 1
+# assign 0, 0.5 or 1 depending on number of vacation days
+for (i in 1:nrow(surveydata)) {
+  
+  if (surveydata$VacationFirstYr[[i]] >= 10) {
+    surveydata$VacationFirstYrScaled[[i]] <- 1
   }
+  else if (surveydata$VacationFirstYr[[i]] < 10 && surveydata$VacationFirstYr[[i]] >= 5) {
+    surveydata$VacationFirstYrScaled[[i]] <- 0.5
+  }
+  else surveydata$VacationFirstYrScaled[[i]] <- 0
 }
 
-## remove "FirstYr" and "FifthYr" from values in leavetype column
-for (x in 1:nrow(tidyleave)) {
-  value = tidyleave$leavetype[[x]]
-  tidyleave$leavetype[[x]] <- substr(value, 1, nchar(value)-7) 
+for (i in 1:nrow(surveydata)) {
+  
+  if (surveydata$VacationFifthYr[[i]] >= 15) {
+    surveydata$VacationFifthYrScaled[[i]] <- 1
+  }
+  else if (surveydata$VacationFifthYr[[i]] < 15 && surveydata$VacationFifthYr[[i]] >= 10) {
+    surveydata$VacationFifthYrScaled[[i]] <- 0.5
+  }
+  else surveydata$VacationFifthYrScaled[[i]] <- 0
 }
+
+# convert "No" values to 0
+surveydata$EmployeeHealthIns <- replace(surveydata$EmployeeHealthIns, surveydata$EmployeeHealthIns == "No", 0)
+surveydata$EmployeeDental <- replace(surveydata$EmployeeDental, surveydata$EmployeeDental == "No", 0)
+surveydata$EmployeeLTD <- replace(surveydata$EmployeeLTD, surveydata$EmployeeLTD == "No", 0)
+surveydata$EmployeeSTD <- replace(surveydata$EmployeeSTD, surveydata$EmployeeSTD == "No", 0)
+surveydata$EmployeeLife <- replace(surveydata$EmployeeLife, surveydata$EmployeeLife == "No", 0)
+surveydata$Retirement <- replace(surveydata$Retirement, surveydata$Retirement == "No", 0)
+
+# convert NA values to 0
+surveydata$MaternityPaid <- as.numeric(replace(surveydata$MaternityPaid, is.na(surveydata$MaternityPaid), 0))
+surveydata$PaternityPaid <- as.numeric(replace(surveydata$PaternityPaid, is.na(surveydata$PaternityPaid), 0))
+surveydata$FamilyLeavePaid <- as.numeric(replace(surveydata$FamilyLeavePaid, is.na(surveydata$FamilyLeavePaid), 0))
+surveydata$SabbaticalPaid <- as.numeric(replace(surveydata$SabbaticalPaid, is.na(surveydata$SabbaticalPaid), 0))
+surveydata$FlextimeYes <- as.numeric(replace(surveydata$FlextimeYes, is.na(surveydata$FlextimeYes), 0))
+surveydata$TelecommutingYes <- as.numeric(replace(surveydata$TelecommutingYes, is.na(surveydata$TelecommutingYes), 0))
+surveydata$TeleworkingYes<- as.numeric(replace(surveydata$TeleworkingYes, is.na(surveydata$TeleworkingYes), 0))
+surveydata$EmployeeHealthIns<- as.numeric(replace(surveydata$EmployeeHealthIns, is.na(surveydata$EmployeeHealthIns), 0))
+surveydata$EmployeeDental<- as.numeric(replace(surveydata$EmployeeDental, is.na(surveydata$EmployeeDental), 0))
+surveydata$EmployeeLTD<- as.numeric(replace(surveydata$EmployeeLTD, is.na(surveydata$EmployeeLTD), 0))
+surveydata$EmployeeSTD<- as.numeric(replace(surveydata$EmployeeSTD, is.na(surveydata$EmployeeSTD), 0))
+surveydata$EmployeeLife<- as.numeric(replace(surveydata$EmployeeLife, is.na(surveydata$EmployeeLife), 0))
+surveydata$Retirement<- as.numeric(replace(surveydata$Retirement, is.na(surveydata$Retirement), 0))
+
+# compute new column BenefitIndex that adds up all of the 1 values for each organization
+surveydata$BenefitIndex <- surveydata$MaternityPaid +
+                           surveydata$PaternityPaid +
+                           surveydata$FamilyLeavePaid +
+                           surveydata$SabbaticalPaid +
+                           surveydata$FlextimeYes +
+                           surveydata$TelecommutingYes +
+                           surveydata$TeleworkingYes +
+                           surveydata$EmployeeHealthIns +
+                           surveydata$EmployeeDental +
+                           surveydata$EmployeeLTD +
+                           surveydata$EmployeeSTD +
+                           surveydata$EmployeeLife +
+                           surveydata$Retirement +
+                           surveydata$VacationFirstYrScaled +
+                           surveydata$VacationFifthYrScaled
+
+# replace NA values with zero
+surveydata$BenefitIndex <- replace(surveydata$BenefitIndex, is.na(surveydata$BenefitIndex), 0)
+```
+
+The maximum possible score for the benefit index is 15, with the average and median at 6.5.
+
+```{r echo = FALSE}
+summary(surveydata$BenefitIndex)
+```
+
+Comparing the benefits index to operating budget, the levels of benefits offered increases with budgets up to $1 million but level off for budgets between $1 million and $2 million.
+
+```{r echo = FALSE, warning = FALSE}
+# scatterplot of operating budget to benefit index
+ggplot(surveydata, aes(x = Budget, y = BenefitIndex)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(method = "loess", size = 1) +
+  coord_cartesian(xlim = c(0,3000000)) +
+  labs(title = "Level of Benefits by Operating Budget", y = "Benefit Index") +
+  scale_x_continuous(labels = comma) +
+  theme_light()
+```
+
+Similarly, benefits improve for organizations with up to 10 full-time staff but stay level or drop slightly when there are more than 10 staff.
+
+```{r echo = FALSE, warning = FALSE}
+# scatterplot of staff size to benefit index
+ggplot(surveydata, aes(x = FTstaff, y = BenefitIndex)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(method = "loess", size = 1) +
+  coord_cartesian(xlim = c(0,30)) +
+  labs(title = "Level of Benefits by Staff Size", x = "Number of Full-Time Staff", y = "Benefit Index") +
+  scale_x_continuous(labels = comma) +
+  theme_light()
+```
+
+With the exception of a few outliers, the staff salary index remains fairly constant regardless of the number of benefits offered. This means that there is no general trend toward lower salaries being offset by better benefits.
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# comparison of staff salaries index to benefit index
+ggplot(surveydata, aes(x = round(BenefitIndex), y = StaffSalaryIndex/30)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(se = FALSE) +
+  labs(title = "Comparison of Salaries to Benefits", x = "Benefit Index", y = "Staff Salary Index") +
+  scale_y_continuous(labels = comma) +
+  theme_light()
+```
+
+Looking at a comparison of budget to the salary index suggests that across non-ED job categories, staff at larger organizations are paid comparable salaries as their peers at smaller organizations. This stands in contrast to executive directors whose salaries increased with both budget and staff size.
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# comparison of budget to salary index
+ggplot(surveydata, aes(x = Budget, y = StaffSalaryIndex/30)) +
+  geom_jitter(alpha = 0.4) +
+  #geom_bar(stat = "identity") +
+  geom_smooth(se = FALSE) +
+  coord_cartesian(xlim = c(0, 3000000), ylim = c(-10000, 20000)) +
+  labs(title = "Comparison of Budget to Salary Index", x = "Budget", y = "Staff Salary Index") +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  theme_light()
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# comparison of staff size to salary index
+ggplot(surveydata, aes(x = FTstaff, y = StaffSalaryIndex/30)) +
+  geom_jitter(alpha = 0.4) +
+  #geom_bar(stat = "identity") +
+  geom_smooth(se = FALSE) +
+  coord_cartesian(xlim = c(0, 30), ylim = c(-10000, 20000)) +
+  labs(title = "Comparison of Staff Size to Salary Index", x = "Number of Full-Time Staff", y = "Staff Salary Index") +
+  scale_y_continuous(labels = comma) +
+  theme_light()
+```
+
+With our benefits index, let's take one last look at executive director compensation as a combination of both salary and benefits. 
+
+```{r include = FALSE}
+
+EDchartdata <- select(surveydata, 'Budget', 'YearsExp', 'YearsExpOtherOrgs', 'EDgender', 'EDsalary', 'FTstaff', 'FlextimeYes', 'TeleworkingYes', 'TelecommutingYes', 'BenefitIndex')
+
+EDchartdata <- drop_na(EDchartdata)
+names(EDchartdata) <- c("budget", "years_exp", "years_other", "gender", "salary", "ftstaff", "flextime", "telework", "telecommute", 'benefitindex')
+
+## remove unknown gender to simplify trendlines
+EDchartdata_mf <- subset(EDchartdata, gender != "Prefer not to answer")
+
+## add new column to summarize flextime, telework and telecommute benefits
+EDchartdata_mf$flexindex <- EDchartdata_mf$flextime + 
+                            EDchartdata_mf$telework +
+                            EDchartdata_mf$telecommute
+
+myColors <- c("#CBDB2B", "#006893")
+myLabels <- c("Female", "Male")
 
 ```
 
-We asked about each of these types of leave for first-year and fifth-year staff.
+The graph below suggests that for a given level of benefits, female directors are paid consistently less than their male counterparts.
 
-```{r echo=FALSE}
-## scatterplot of days of each type of leave, color coded by tenure
-ggplot(tidyleave, aes(x = leavetype, y = days, col = as.factor(tenure))) +
-  geom_jitter(alpha = 0.5) +
-  labs(x = "Leave Type", y = "Number of Days") +
+```{r echo = FALSE}
+ggplot(EDchartdata_mf, aes(x = benefitindex, y = salary, col = gender)) +
+  geom_jitter(alpha = 0.4) +
+  geom_smooth(se = FALSE, method = lm) +
+  #geom_bar(stat = "identity", position = "dodge", alpha = 0.4) +
+  #geom_boxplot() +
+  labs(title = "Salary and Benefits by Executive Director Gender", x = "Benefits Index", y = "ED Salary") +
+  scale_y_continuous(labels = comma) +
   theme_light() +
-  theme(legend.title = element_blank()) +
-  scale_color_manual("Tenure", 
+  scale_color_manual("Gender", 
                      values = myColors,
-                     labels = c("First year", "Fifth year"))
+                     labels = myLabels)
 ```
 
-### Family Leave and Sabbaticals
+It's often suggested that female executive directors accept lower pay in exchange for more flexible work schedules. We can look specifically at these policies rather than the benefits package as a whole.
 
-We also asked whether the organization offers four categories of paid or unpaid leave: maternity, paternity, family and sabbatical leave. For each category, responses were either yes, no or blank (no data on number of days). For this analysis, we'll look only at paid leave. We'll take a yes in any of the first three categories as a 1 for paid family leave. 
+We'll create a "Flex Index" which summarizes whether the organization offers flextime, teleworking or telecommuting options. The index ranges from zero (none offered) to 3 (all offered).
 
-```{r include=FALSE}
-familyleave <- select(surveydata, 'RespondentID', 'MaternityPaid', 'PaternityPaid', 'FamilyLeavePaid', 'SabbaticalPaid')
+The bar graph below shows that for all levels of workplace flexibility, women are still paid less than men at organizations with the same policies. It's interesting to note that the gap is largest for organizations with the least flexibility (index = 0).
 
-# replace "Paid" string with 1 value
-familyleave$MaternityPaid <- replace(familyleave$MaternityPaid, familyleave$MaternityPaid == "Paid", 1)
-familyleave$PaternityPaid <- replace(familyleave$PaternityPaid, familyleave$PaternityPaid == "Paid", 1)
-familyleave$FamilyLeavePaid <- replace(familyleave$FamilyLeavePaid, familyleave$FamilyLeavePaid == "Paid", 1)
-familyleave$SabbaticalPaid <- replace(familyleave$SabbaticalPaid, familyleave$SabbaticalPaid == "Paid", 1)
-
-# replace NA with 0
-familyleave$MaternityPaid <- replace(familyleave$MaternityPaid, is.na(familyleave$MaternityPaid), 0)
-familyleave$PaternityPaid <- replace(familyleave$PaternityPaid, is.na(familyleave$PaternityPaid), 0)
-familyleave$FamilyLeavePaid <- replace(familyleave$FamilyLeavePaid, is.na(familyleave$FamilyLeavePaid), 0)
-familyleave$SabbaticalPaid <- replace(familyleave$SabbaticalPaid, is.na(familyleave$SabbaticalPaid), 0)
-
-## make sure days is in integers
-familyleave$FamilyLeavePaid <- as.integer(familyleave$FamilyLeavePaid)
-familyleave$SabbaticalPaid <- as.integer(familyleave$SabbaticalPaid)
-
-# summarize a yes in any of the three categories as a 1 for paid family leave
-for (x in 1:nrow(familyleave)) {
-  if (familyleave$MaternityPaid[[x]] == 1 || familyleave$PaternityPaid[[x]] == 1) {
-    familyleave$FamilyLeavePaid[[x]] <- 1
-  }
-}
+```{r echo = FALSE}
+ggplot(EDchartdata_mf, aes(x = as.factor(flexindex), y = salary, col = gender)) +
+  geom_boxplot() +
+  labs(title = "Salary and Workplace Flexibility by Executive Director Gender", x = "Flexibility Index", y = "ED Salary") +
+  scale_y_continuous(labels = comma) +
+  theme_light() +
+  scale_color_manual("Gender", 
+                     values = myColors,
+                     labels = myLabels)
 ```
 
-### Health Insurance
+## Conclusions
 
-### Retirement Contributions
+Key findings of this project analysis include:
 
-### Flexible Working Schedules
+* On average, male executive directors are paid $10,170 more than a female director with the same number of years of experience, budget and number of staff. This disparity persists regardless of whether the organization offers better benefits or more workplace flexibility.
 
-Flextime, telecommute, telework
+* The second-largest factor in executive director compensation is staff size, with an average increase of $1886 for each additional full-time staff person.
 
+* Benefits steadily improve as an organization's budget reaches $1 million or 10 full-time staff but largely level off above this point.
+
+* There does not appear to be any evidence for the anecdotal claim that organizations paying lower salaries offset this by offering better benefits. Generous benefits packages are offered by organizations paying both higher and lower than average staff salaries.
+
+* In contrast to executive directors whose salaries increased with both budget and staff size, staff at larger organizations are paid comparable salaries as their peers at smaller organizations.
+
+### Recommendations
+
+* Distribute these findings internally at the Alliance and with external audiences as appropriate to build awareness of the gender disparity in executive director salaries.
+
+* Conduct this analysis with data from the next salary survey in 2020.
+
+### Further Analysis
+
+Potential avenues for further analysis using the 2017 data could include:
+
+* incorporating the states of operation data to consider an organization's location (state or region) or scope (number of states);
+
+* cross-referencing Census data on acres of land protected as a measure of organizational effectiveness;
+
+* extending the gender pay gap analysis to other staff positions by asking for number of male and female staff in future editions of the survey.
